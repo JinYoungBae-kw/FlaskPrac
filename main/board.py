@@ -1,7 +1,9 @@
 from main import *
+from flask import Blueprint
 
+blueprint = Blueprint("board", __name__, url_prefix="/board")
 
-@app.route("/list")
+@blueprint.route("/list")
 def lists():
   # 페이지 값 (값이 없는 경우 기본값은 1)
   page = request.args.get("page", 1, type=int)
@@ -54,10 +56,11 @@ def lists():
                          block_last = block_last, 
                          last_page_num = last_page_num,
                          search = search,
-                         keyword = keyword)  
+                         keyword = keyword,
+                         title = "게시판 리스트")  
 
 
-@app.route("/view/<idx>")
+@blueprint.route("/view/<idx>")
 @login_required
 def board_view(idx):
   #idx = request.args.get("idx")
@@ -85,11 +88,12 @@ def board_view(idx):
                              result = result,
                              page = page,
                              search = search,
-                             keyword = keyword)
+                             keyword = keyword,
+                             title = "글 상세보기")
   return abort(404)
 
 
-@app.route("/write", methods=["GET", "POST"])
+@blueprint.route("/write", methods=["GET", "POST"])
 @login_required
 def board_write():
   if request.method == "POST":  # 무언가 입력 시
@@ -111,25 +115,25 @@ def board_write():
 
     x = board.insert_one(post) # 저장한다.
     print(x.inserted_id)
-    return redirect(url_for("board_view", idx=x.inserted_id)) 
+    return redirect(url_for("board.board_view", idx=x.inserted_id)) 
   else:
-    return render_template("write.html")  # 그냥 실행 시
+    return render_template("write.html", title="글 작성")  # 그냥 실행 시
   
   
-@app.route("/edit/<idx>", methods=["GET", "POST"])
+@blueprint.route("/edit/<idx>", methods=["GET", "POST"])
 def board_edit(idx):
   if request.method == "GET":
     board = mongo.db.board
     data = board.find_one({"_id": ObjectId(idx)})
     if data is None:
       flash("해당 게시물이 존재하지 않습니다.")
-      return redirect(url_for("lists"))
+      return redirect(url_for("board.lists"))
     else:
       if session.get("id") == data.get("writer_id"):
-        return render_template("edit.html", data=data)
+        return render_template("edit.html", data=data, title="글 수정")
       else:
         flash("글 수정 권한이 없습니다.")
-        return redirect(url_for("lists"))
+        return redirect(url_for("board.lists"))
   else:
     title = request.form.get("title")
     contents = request.form.get("contents")
@@ -144,13 +148,13 @@ def board_edit(idx):
         }
       })
       flash("수정되었습니다.")
-      return redirect(url_for("board_view", idx=idx))
+      return redirect(url_for("board.board_view", idx=idx))
     else:
       flash("글 수정 권한이 없습니다.")
-      return redirect(url_for("lists"))
+      return redirect(url_for("board.lists"))
 
 
-@app.route("/delete/<idx>")
+@blueprint.route("/delete/<idx>")
 def board_delete(idx):
   board = mongo.db.board
   data = board.find_one({"_id": ObjectId(idx)})
@@ -159,4 +163,4 @@ def board_delete(idx):
     flash("삭제 되었습니다.")
   else:
     flash("삭제 권한이 없습니다.")
-  return redirect(url_for("lists"))
+  return redirect(url_for("board.lists"))

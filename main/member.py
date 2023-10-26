@@ -1,7 +1,9 @@
 from main import *
+from flask import Blueprint
 
+blueprint = Blueprint("member", __name__, url_prefix="/member")
 
-@app.route("/join", methods=["GET", "POST"])
+@blueprint.route("/join", methods=["GET", "POST"])
 def member_join():
   if request.method == "POST":
     name = request.form.get("name", type=str)
@@ -11,16 +13,16 @@ def member_join():
 
     if name == "" or email == "" or pass1 == "" or pass2 == "":
       flash("입력되지 않은 값이 있습니다.")
-      return render_template("join.html")
+      return render_template("join.html", title="회원가입")
     if pass1 != pass2:
       flash("비밀번호가 일치하지 않습니다.")
-      return render_template("join.html")
+      return render_template("join.html", title="회원가입")
     
     members = mongo.db.members
     cnt = members.count_documents({"email": email})
     if cnt > 0:
       flash("중복된 이메일 주소입니다.")
-      return render_template("join.html")
+      return render_template("join.html", title="회원가입")
     
     current_utc_time = round(datetime.utcnow().timestamp() * 1000)
     post = {
@@ -34,12 +36,12 @@ def member_join():
 
     members.insert_one(post)
 
-    return ""
+    return redirect(url_for("board.lists"))
   else:
-    return render_template("join.html")
+    return render_template("join.html", title="회원가입")
   
 
-@app.route("/login", methods=["GET", "POST"])
+@blueprint.route("/login", methods=["GET", "POST"])
 def member_login():
   if request.method == "POST":
     email = request.form.get("email")
@@ -51,10 +53,10 @@ def member_login():
 
     if data is None:
       flash("회원 정보가 없습니다.")
-      return redirect(url_for("member_login"))
+      return redirect(url_for("member.member_login"))
     elif email == "" or password == "":
       flash("입력되지 않은 값이 있습니다.")
-      return redirect(url_for("member_login"))
+      return redirect(url_for("member.member_login"))
     else:
       if data.get("pass") == password:
         session["email"] = email
@@ -64,14 +66,25 @@ def member_login():
         if next_url is not None:
           return redirect(next_url)
         else:
-          return redirect(url_for("lists"))
+          return redirect(url_for("board.lists"))
       else:
         flash("비밀번호가 일치하지 않습니다.")
-        return redirect(url_for("member_login"))
+        return redirect(url_for("member.member_login"))
     return ""
   else:
     next_url = request.args.get("next_url", type=str)
     if next_url is not None:
-      return render_template("login.html", next_url=next_url)
+      return render_template("login.html", next_url=next_url, title="회원가입")
     else:
-      return render_template("login.html")
+      return render_template("login.html", title="회원가입")
+    
+
+@blueprint.route("/logout")
+def member_logout():
+  try:
+    del session["name"]
+    del session["id"]
+    del session["email"]
+  except:
+    pass
+  return redirect(url_for('member.member_login'))
