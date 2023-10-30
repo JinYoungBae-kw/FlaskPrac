@@ -1,7 +1,33 @@
 from main import *
 from flask import Blueprint
+from flask import send_from_directory
 
 blueprint = Blueprint("board", __name__, url_prefix="/board")
+
+def board_delete_attach_file(filename):
+  abs_path = os.path.join(app.config["BOARD_ATTACH_FILE_PATH"], filename)
+  if os.path.exists(abs_path):
+    os.remove(abs_path)
+    return True
+  return False
+
+@blueprint.route("/upload_image", methods=["POST"])
+def upload_image():
+  if request.method == "POST":
+    file = request.files["image"]
+    if file and allowed_file(file.filename):
+      filename = "{}.jpg".format(rand_generator())
+      savefilepath = os.path.join(app.config["BOARD_IMAGE_PATH"], filename)
+      file.save(savefilepath)
+      return url_for("board.board_images", filename=filename)
+    
+@blueprint.route("/image/<filename>")
+def board_images(filename):
+  return send_from_directory(app.config["BOARD_IMAGE_PATH"], filename)
+
+@blueprint.route("/files/<filename>")
+def board_files(filename):
+  return send_from_directory(app.config["BOARD_ATTACH_FILE_PATH"], filename, as_attachment=True)
 
 @blueprint.route("/list")
 def lists():
@@ -81,7 +107,8 @@ def board_view(idx):
         "contents": data.get("contents"),
         "pubdate": data.get("pubdate"),
         "view": data.get("view"),
-        "writer_id": data.get("writer_id", "")
+        "writer_id": data.get("writer_id", ""),
+        "attachfile": data.get("attachfile", "")
       }
 
       return render_template("view.html", 
@@ -97,11 +124,18 @@ def board_view(idx):
 @login_required
 def board_write():
   if request.method == "POST":  # 무언가 입력 시
+    filename = None
+    if "attachfile" in request.files:
+      file = request.files["attachfile"]
+      if file and allowed_file(file.filename):
+        filename = check_filename(file.filename)
+        file.save(os.path.join(app.config['BOARD_ATTACH_FILE_PATH'], filename))
+
     name = request.form.get("name")
     title = request.form.get("title")
     contents = request.form.get("contents")
-    print(name, title, contents)
 
+    request.files
     current_utc_time = round(datetime.utcnow().timestamp() * 1000) #시간 관련 라이브러리
     board = mongo.db.board  #mongo 기능 중 db 사용해 board라는 컬렉션에 접근.
     post = {
@@ -112,6 +146,9 @@ def board_write():
       "writer_id": session.get("id"),
       "view": 0,
     }
+
+    if filename is not None:
+      post["attachfile"] = filename
 
     x = board.insert_one(post) # 저장한다.
     print(x.inserted_id)
@@ -137,14 +174,33 @@ def board_edit(idx):
   else:
     title = request.form.get("title")
     contents = request.form.get("contents")
+    deleteoldfile = request.form.get("deleteoldfile", "")
 
     board = mongo.db.board
     data = board.find_one({"_id": ObjectId(idx)})
     if session.get("id") == data.get("writer_id"):
+      filename = None
+      if "attachfile" in request.files:
+        file = request.files["attachfile"]
+        if file and allowed_file(file.filename):
+          filename = check_filename(file.filename)
+          file.save(os.path.join(app.config["BOARD_ATTACH_FILE_PATH"], filename))
+
+          if data.get("attachfile"):
+            board_delete_attach_file(data.get("attachfile"))
+      else:
+        if deleteoldfile == "on":
+          filename = None
+          if data.get("attachfile"):
+            board_delete_attach_file(data.get("attachfile"))
+        else:
+          filename = data.get("attachfile")
+
       board.update_one({"_id": ObjectId(idx)}, {
         "$set": {
           "title": title,
           "contents": contents,
+          "attachfile": filename
         }
       })
       flash("수정되었습니다.")

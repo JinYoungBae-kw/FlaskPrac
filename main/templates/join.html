@@ -1,32 +1,59 @@
 {% extends "main.html" %}
 
 {% block contents %}
-<table>
-  <form name="form" action="{{url_for('member.member_join')}}" method="POST">
-    <thead>
-      <caption>회원가입</caption>
-    </thead>
-    <thead>
-      <tr>
-        <td>이름</td>
-        <td><input type="text" name="name"></td>
-      </tr>
-      <tr>
-        <td>이메일</td>
-        <td><input type="text" name="email"></td>
-      </tr>
-      <tr>
-        <td>비밀번호</td>
-        <td><input type="password" name="pass"></td>
-      </tr>
-      <tr>
-        <td>비밀번호 확인</td>
-        <td><input type="password" name="pass2"></td>
-      </tr>
-      <tr>
-        <td colsapn="2"><input type="submit" value="가입하기"></td>
-      </tr>
-    </thead>
-  </form>
-</table>
+<script>
+  function checkForm() {
+    if($.trim($("#name").val()) == "") {
+      alert("이름을 입력하세요.");
+      $("#name").focus();
+      return false;
+    }
+    if($.trim($("#email").val()) == "") {
+      alert("이메일을 입력하세요.");
+      $("#email").focus();
+      return false;
+    }
+    if(!validateEmail($.trim($("#email").val()))) {
+      alert("이메일 유효성이 올바르지 않습니다..");
+      $("#email").focus();
+      return false;
+    }
+    if($.trim($("#pass1").val()) == "") {
+      alert("비밀번호를 입력하세요.");
+      $("#pass1").focus();
+      return false;
+    }
+    if($.trim($("#pass2").val()) == "") {
+      alert("비밀번호를 입력하세요.");
+      $("#pass2").focus();
+      return false;
+    }
+    if($.trim($("#pass1").val()) != $.trim($("#pass2").val())) {
+      alert("비밀번호가 일치하지 않습니다.");
+      $("#pass2").select().focus();
+      return false;
+    }
+  }
+</script>
+
+<form name="form" action="{{url_for('member.member_join')}}" method="POST" onsubmit="return checkForm()">
+  <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+  <div class="form-group">
+    <label for="name">이름</label>
+    <input class="form-control" type="text" name="name" id="name">
+  </div>
+  <div class="form-group">
+    <label for="email">이메일</label>
+    <input class="form-control" type="text" name="email" id="email">
+  </div>
+  <div class="form-group">
+    <label for="pass1">비밀번호</label>
+    <input class="form-control" type="password" name="pass" id="pass1">
+  </div>
+  <div class="form-group">
+    <label for="pass2">비밀번호 확인</label>
+    <input class="form-control" type="password" name="pass2" id="pass2">
+  </div>
+  <div class="text-center"><input class="btn btn-primary" type="submit" value="가입하기"></div>
+</form>
 {% endblock %}
