@@ -11,6 +11,80 @@ def board_delete_attach_file(filename):
     return True
   return False
 
+@blueprint.route("/comment_edit", methods=["POST"])
+def comment_edit():
+  if request.method == "POST":
+    idx = request.form.get("id")
+    comment = request.form.get("comment")
+
+    c_comment = mongo.db.comment
+    data = c_comment.find_one({"_id": ObjectId(idx)})
+    if data.get("writer_id") == session.get("id"):
+      c_comment.update_one(
+        {"_id": ObjectId(idx)},
+        {"$set": {"comment": comment}},      
+      )
+      return jsonify(error="success")
+    else:
+      return jsonify(error="error")
+  return abort(401)
+
+@blueprint.route("/comment_delete", methods=["POST"])
+@login_required
+def comment_delete():
+  if request.method == "POST":
+    idx = request.form.get("id")
+    comment = mongo.db.comment
+    data = comment.find_one({"_id": ObjectId(idx)})
+    if data.get("writer_id") == session.get("id"):
+      comment.delete_one({"_id": ObjectId(idx)})
+      return jsonify(error="success")
+    else:
+      return jsonify(error="error")
+  return abort(401)
+
+@blueprint.route("/comment_list/<root_idx>", methods=["GET"])
+def comment_list(root_idx):
+  comment = mongo.db.comment
+  comments = comment.find({"root_idx": str(root_idx)}).sort([("pubdate", -1)])
+
+  comment_list = []
+  for c in comments:
+    owner = True if c.get("writer_id") == session.get("id") else False
+    comment_list.append({
+      "id": str(c.get("_id")),
+      "root_idx": c.get("root_idx"),
+      "name": c.get("name"),
+      "writer_id": c.get("writer_id"),
+      "comment": c.get("comment"),
+      "pubdate": format_datetime(c.get("pubdate")),
+      "owner": owner,
+    })
+  return jsonify(error="success", lists=comment_list)
+
+@blueprint.route("/comment_write", methods=["POST"])
+@login_required
+def comment_write():
+  if request.method == "POST":
+    name = session.get("name")
+    writer_id = session.get("id")
+    root_idx = request.form.get("root_idx")
+    comment = request.form.get("comment")
+    current_utc_time = round(datetime.utcnow().timestamp() * 1000)
+
+    c_comment = mongo.db.comment
+
+    post = {
+      "root_idx": str(root_idx),
+      "writer_id": writer_id,
+      "name": name,
+      "comment": comment,
+      "pubdate": current_utc_time
+    }
+
+    c_comment.insert_one(post)
+    return redirect(url_for("board.board_view", idx=root_idx))
+
 @blueprint.route("/upload_image", methods=["POST"])
 def upload_image():
   if request.method == "POST":
